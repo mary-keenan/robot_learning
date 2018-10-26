@@ -6,9 +6,10 @@ from geometry_msgs.msg import Twist
 import cv2
 import csv
 import numpy
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from scipy.misc import imread
 import glob
+from random import shuffle
 
 
 
@@ -21,6 +22,7 @@ class ConvolutionalNeuralNetwork(object):
 		self.vel_msg = Twist()
 		self.vel_msg.linear.x = 0
 		self.vel_msg.angular.z = 0
+		self.proportion_of_training_set_to_total = .9 # determines what % of the total data will be used for training (with the rest being used for testing)
 
 
 	def get_data(self):
@@ -61,9 +63,27 @@ class ConvolutionalNeuralNetwork(object):
 		return data_list
 
 
+	def divide_training_and_testing_data(self, data_list):
+		""" randomly divides total dataset into disjoint training and testing subsets """
+
+		# figure out the sizes of the training and testing datasets
+		total_dataset_size = len(data_list)
+		training_set_size = int(round(total_dataset_size * self.proportion_of_training_set_to_total))
+		testing_set_size = total_dataset_size - training_set_size
+
+		# randomly allocate data points to the two sets
+		shuffle(data_list)
+		training_set = data_list[:training_set_size]
+		testing_set = data_list[training_set_size:]
+
+		return (training_set, testing_set)
+
 
 	def run(self):
-		self.get_data()
+		""" """
+
+		data_list = self.get_data()
+		training_list, testing_list = self.divide_training_and_testing_data(data_list)
 
 
 
