@@ -10,6 +10,7 @@ from scipy.misc import imread
 import glob
 import random
 from sklearn.ensemble import AdaBoostRegressor
+from sklearn.metrics import roc_auc_score
 
 
 class AdaBoostReg(object):
@@ -25,6 +26,9 @@ class AdaBoostReg(object):
 		self.y_train = []
 		self.x_test = []
 		self.y_train = []
+		self.scoring = 0
+		self.most_recent_image = []
+		self.predict_img = []
 
 	def get_data(self):
 		""" gets images and velocities from metadata.csv and converts the images to vectors; stores values in x/y_train/test"""
@@ -33,16 +37,12 @@ class AdaBoostReg(object):
 		rawdata = np.load('/home/siena/catkin_ws/src/robot_learning/robot_learning/data_processing_utilities/data/train2.npz')
 		x_rawraw = rawdata["imgs"]
 		y_raw = rawdata["ang_vels"]
-		print('loaded')
-
 		# reshape data
 		#----------------------------------------------------------------------
 		x_raw = x_rawraw.reshape((x_rawraw.shape[0],
                                                x_rawraw.shape[1]*
                                                x_rawraw.shape[2]*
                                                x_rawraw.shape[3]))
-		print('formatted')
-
 		# divide data into train and test
 		#----------------------------------------------------------------------
 		total_dataset_size = len(x_raw)
@@ -56,16 +56,54 @@ class AdaBoostReg(object):
 		self.x_test = x_raw[testing_set_size:]
 		self.y_test = y_raw[testing_set_size:]
 
-
 	def run_model(self):
 		"""Runs AdaBoostRegressor on training set and compares to test"""
-		model = AdaBoostRegressor(n_estimators=2)
-		model.fit(self.x_train, self.y_train)
-		print('model finished')
+		self.model = AdaBoostRegressor(n_estimators=1)
+		self.model.fit(self.x_train, self.y_train)
+		#self.scoring = roc_auc_score(self.y_train, model.predict(self.x_train))
+
+	def update_current_image(self, data):
+		""" camera callback -- just saves image as most recent image """
+		self.most_recent_image = numpy.fromstring(data.data, numpy.uint8)
+
+	def process_img(self, rawimg):
+		"""Processes images for prediction"""
+		img = rawimg[round(np.asarray(rawimg).shape[0]/2):,:,:]
+		img = resizing(img,(120,320))
+		self.predict_img = img
+
+	def predict_velocity(self):
+		""" makes prediction of the velocities the robot should use to follow another robot given the trained model and input image """
+		reshaped_image = self.process_img(self.most_recent_image)
+		predicted_encoding = self.model.predict(reshaped_image)    #[0] necessary because the predict() produces a nested list
+		linear, angular = [velocities for (velocities, category) in self.encoded_velocities.items() if category == numpy.argmax(predicted_encoding)][0]
+		self.vel_msg.linear.x, self.vel_msg.angular.z = (linear * 1.5, angular * 1.5)
+		print ('predicted linear velocity: %f, predicted angular velocity: %f' % (self.vel_msg.linear.x, self.vel_msg.angular.z))
+
+
+	def join_the_herd(self):
+		""" neato uses the trained model to navigate (follow another neato) """
+		# load model/velocity encodings and set up camera callback
+		self.trained_model = pickle.load(open('/home/siena/catkin_ws/src/robot_learning/robot_learning/data_processing_utilities/data/trained_model_with_omission_84.sav', 'rb'))
+		self.encoded_velocities = pickle.load(open('/home/siena/catkin_ws/src/robot_learning/robot_learning/data_processing_utilities/data/encoded_velocities.sav', 'rb'))
+		rospy.Subscriber('camera/image_raw', Image, self.update_current_image)
+		# wait for first image data before starting the general run loop
+		while self.most_recent_image is None and not rospy.is_shutdown():
+			self.rate.sleep()
+
 
 	def run(self):
-		self.get_data()
-		self.run_model()
+		while not rospy.is_shutdown():
+			self.get_data()
+			print('data')
+			self.run_model()
+			print('model')
+			self.predict_velocity()
+			print('predict')
+			self.publisher.publish(self.vel_msg)
+			print('pub')
+			#self.join_the_herd()
+			self.rate.sleep()
 
 
 
