@@ -7,6 +7,7 @@ import cv2
 import csv
 import numpy as np
 from scipy.misc import imread
+from skimage.transform import resize
 import glob
 import random
 from sklearn.ensemble import AdaBoostRegressor
@@ -27,7 +28,7 @@ class AdaBoostReg(object):
 		self.x_test = []
 		self.y_train = []
 		self.scoring = 0
-		self.most_recent_image = []
+		self.most_recent_image = None
 		self.predict_img = []
 
 	def get_data(self):
@@ -46,13 +47,13 @@ class AdaBoostReg(object):
 		# divide data into train and test
 		#----------------------------------------------------------------------
 		total_dataset_size = len(x_raw)
-		training_set_size = int(round(.5*total_dataset_size * self.proportion_of_training_set_to_total))
+		training_set_size = int(round(.1*total_dataset_size * self.proportion_of_training_set_to_total))
 		testing_set_size = total_dataset_size - 20# training_set_size
 		random.seed(123)
 		random.shuffle(x_raw)
 		random.shuffle(y_raw)
-		self.x_train = x_raw[:500]
-		self.y_train = y_raw[:500]
+		self.x_train = x_raw[:training_set_size]#500]
+		self.y_train = y_raw[:training_set_size]#500]
 		self.x_test = x_raw[testing_set_size:]
 		self.y_test = y_raw[testing_set_size:]
 
@@ -68,8 +69,12 @@ class AdaBoostReg(object):
 
 	def process_img(self, rawimg):
 		"""Processes images for prediction"""
-		img = rawimg[round(np.asarray(rawimg).shape[0]/2):,:,:]
-		img = resizing(img,(120,320))
+		print(type(rawimg))
+		rawimg = np.asarray(rawimg)
+		print(rawimg.shape)
+
+		img = rawimg[round(rawimg.shape[0]/2):]
+		img = resize(img,(120,320))
 		self.predict_img = img
 
 	def predict_velocity(self):
@@ -84,11 +89,17 @@ class AdaBoostReg(object):
 	def join_the_herd(self):
 		""" neato uses the trained model to navigate (follow another neato) """
 		# load model/velocity encodings and set up camera callback
-		self.trained_model = pickle.load(open('/home/siena/catkin_ws/src/robot_learning/robot_learning/data_processing_utilities/data/trained_model_with_omission_84.sav', 'rb'))
-		self.encoded_velocities = pickle.load(open('/home/siena/catkin_ws/src/robot_learning/robot_learning/data_processing_utilities/data/encoded_velocities.sav', 'rb'))
+		#self.trained_model = pickle.load(open('/home/siena/catkin_ws/src/robot_learning/robot_learning/data_processing_utilities/data/trained_model_with_omission_84.sav', 'rb'))
+		#self.encoded_velocities = pickle.load(open('/home/siena/catkin_ws/src/robot_learning/robot_learning/data_processing_utilities/data/encoded_velocities.sav', 'rb'))
 		rospy.Subscriber('camera/image_raw', Image, self.update_current_image)
 		# wait for first image data before starting the general run loop
 		while self.most_recent_image is None and not rospy.is_shutdown():
+			self.rate.sleep()
+
+		# general run loop
+		while not rospy.is_shutdown():
+			self.predict_velocity()
+			self.publisher.publish(self.vel_msg)
 			self.rate.sleep()
 
 
@@ -98,12 +109,7 @@ class AdaBoostReg(object):
 			print('data')
 			self.run_model()
 			print('model')
-			self.predict_velocity()
-			print('predict')
-			self.publisher.publish(self.vel_msg)
-			print('pub')
-			#self.join_the_herd()
-			self.rate.sleep()
+			self.join_the_herd()
 
 
 
