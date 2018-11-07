@@ -24,7 +24,7 @@ class ConvolutionalNeuralNetwork(object):
 		rospy.init_node('sheepie')
 
 		# training
-		self.proportion_of_training_set_to_total = .8 # determines what % of the total data will be used for training (with the rest being used for testing)
+		self.proportion_of_training_set_to_total = .8 # determines what % of the total data will be used for training (with the rest being used for validation)
 		
 		# publishers and subscribers
 		self.publisher = rospy.Publisher('cmd_vel', Twist, queue_size = 10)
@@ -191,11 +191,11 @@ class ConvolutionalNeuralNetwork(object):
 		""" visualizes model layers and saliency maps for troubleshooting """
 
 		# load model
-		model = pickle.load(open('/home/mary/catkin_ws/src/robot_learning/data_processing_utilities/data/trained_model_with_omission_84.sav', 'rb'))
+		model = pickle.load(open('/home/mary/catkin_ws/src/robot_learning/data_processing_utilities/data/trained_model_test.sav', 'rb'))
 		model.summary()
 		data_list = self.get_data(805)
 		testing_x_list, testing_y_list = self.separate_x_and_y(data_list)
-		name = 'omission_84_2'
+		name = 'test'
 		pic_num = 800
 
 		# NOTE: make sure to change this to the last layer of the model
