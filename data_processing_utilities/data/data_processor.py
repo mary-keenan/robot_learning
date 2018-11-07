@@ -6,26 +6,31 @@ import numpy as np
 import os.path
 
 script_dir = os.path.dirname(__file__)
-folder_dir = os.path.join(script_dir, 'third_collection')
+folder_dir = os.path.join(script_dir, 'first_collection')
 read_path = os.path.join(folder_dir, 'metadata.csv')
 write_path = os.path.join(folder_dir, 'metadata2.csv')
 
-#csvinput = open(read_path, 'r')
-#csvoutput = open(write_path, 'w')
+#change parameter if creating new metadata file
 create_file = False
 image_name = 2
+#if we dont create a file,
 if(not create_file):
+	#edit it 
 	csvinput = open(write_path, 'r')
 	reader = csv.reader(csvinput)
 	num_columns = 0
 	omit_array = []
 	all_text = []
+	#get all omit images
 	for i, row in enumerate(reader):
 		all_text.append(row)
 		num_columns += 1
 		image_name = row[1]
-		if(int(row[383]) == 0):
-			omit_array.append(i-1)
+		if(row[383] == 'omit'):
+			pass
+		else:
+			if(int(row[383]) == 0):
+				omit_array.append(i-1)
 #print(num_columns)
 if(image_name == 2):
 	csvinput = open(read_path, 'r')
@@ -35,6 +40,7 @@ if(image_name == 2):
 	all_text = []
 	num_columns = 0
 	omit_array = []
+	#create new elements in our metadata file (omit element)
 	for i, row in enumerate(reader):
 		num_columns += 1
 		image_name = row[1]
@@ -45,7 +51,8 @@ if(image_name == 2):
 		all_text.append(row)
 	writer.writerows(all_text)
 img_path = os.path.join(script_dir, image_name)
-print omit_array
+
+###gui stuff###
 k = 0
 i = 0
 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -57,17 +64,19 @@ fontColor              = (255,255,255)
 fontColor2              = (0,0,255)
 lineType               = 1
 start_int = -1
-end_int = -1
+end_int = -
+#if not escape,
 while(k != 27):
 	csvinput = open(write_path, 'r')
 	reader = csv.reader(csvinput)
+	#get all rows from file
 	row = [row for idx, row in enumerate(reader) if idx == (i+1)][0]
 	image_name = row[1]
 	img_path = os.path.join(folder_dir, image_name)
-	#print i
-	#print image_name
+	#show image in open cv
 	img = cv2.imread(img_path)
 	img = cv2.resize(img, (0,0), None, 2, 2)
+	#create bar representation for omitted frames at bottom of page
 	for e in range(num_columns):
 		if(e >= 1280 and e < 1280*2):
 			for o in range(949, 959):
@@ -85,7 +94,7 @@ while(k != 27):
 					img[o, e] = [0,255,0]
 				if(i == e):
 					img[o, e] = [255,0,0]			
-
+	#add image name
 	cv2.putText(img, image_name, 
 	    bottomLeftCornerOfText, 
 	    font, 
@@ -94,7 +103,7 @@ while(k != 27):
 	    lineType)
 	cmd_vel_angular_z = row[368]
 	cmd_vel_linear_x = row[367]
-	#print cmd_vel_angular_z
+	#add command vels
 	cv2.putText(img, cmd_vel_angular_z, 
 	    topLeftCornerOfText, 
 	    font, 
@@ -107,6 +116,7 @@ while(k != 27):
 	    fontScale,
 	    fontColor2,
 	    2)
+	#add group omission number
 	cv2.putText(img, str(start_int), 
 	    (1100, 920), 
 	    font, 
@@ -125,6 +135,7 @@ while(k != 27):
 	    fontScale,
 	    (0,255,255),
 	    2)
+	#add more bars
 	if(start_int != -1 and end_int != -1 and start_int < end_int):
 		if(start_int >= 1280 and start_int >= 1280 and start_int < 1280*2 and end_int < 1280*2):
 			for o in range(949, 954):
@@ -132,14 +143,14 @@ while(k != 27):
 		if(start_int < 1280 and start_int < 1280):
 			for o in range(939, 944):
 				img = cv2.line(img, (start_int, o), (end_int, o), (255, 255, 255), 1)
-
+	#create circle indicator for omission
 	if(i in omit_array):
 		cv2.circle(img,(1000,800), 20, (0,0,255), -1)
 	else:
 		cv2.circle(img,(1000,800), 20, (0,255,0), -1)
 	cv2.imshow('image', img)
 
-
+	#get key stroke
 	k = cv2.waitKey(33)
 	if(k != -1):
 		#print k
@@ -152,11 +163,13 @@ while(k != 27):
 		i += 10
 	if(k == ord('q') and i > 0 + 10):
 		i -= 10
+	#space bar omits
 	if(k == ord(' ')):
 		if(i in omit_array):
 			omit_array.remove(i)
 		else:
 			omit_array.append(i)
+	#r does group omission
 	if(k == ord('r')):
 		if(start_int > end_int):
 			temp = end_int
@@ -166,7 +179,7 @@ while(k != 27):
 			if(j in omit_array):
 				omit_array.remove(j)
 			omit_array.append(j)
-
+	#t does group addition
 	if(k == ord('t')):
 		if(start_int > end_int):
 			temp = end_int
@@ -176,26 +189,18 @@ while(k != 27):
 			if(j in omit_array):
 				omit_array.remove(j)
 
-	if(k == ord('p')):
-		pass
+	#, and . are group omission keys
 	if(k == ord(',')):
 			start_int = i
 	if(k == ord('.')):
 		end_int = i
 
-
-	#image_name = reader[i][1]
-	#image_path = 
-#for i, row in enumerate(reader):
-print 'hi'
-#csvinput = open(write_path, 'r')
+#re-add all data to metadata2
 csvoutput = open(write_path, 'w')
-#reader = csv.reader(csvinput)
 writer = csv.writer(csvoutput, lineterminator = '\n')
-#print all_text[1][383]
 for i, row in enumerate(all_text):
 	if (i in omit_array):
-		print(i, 'omitted')
+		print(i, ', ')
 		all_text[i+1][383] = 0
 	else:
 		if(i < num_columns - 1):
@@ -204,17 +209,3 @@ for i, row in enumerate(all_text):
 writer.writerows(all_text)
 cv2.destroyAllWindows()
 
-#csv_input2 = open(write_path, 'r')
-#		csv_2 = csv.reader(csv_input2)
-#	for i, row in enumerate(reader)
-#		img_path = os.path.join(script_dir, 'mydataset3/', image_name)
-#		img = cv2.imread(img_path)
-#		cv2.imshow('image', img)
-#		cv2.waitKey(0)
-#		cv2.destroyAllWindows()
-#writer.writerows(all_text)
-#img_path = os.path.join(script_dir, 'mydataset3/', image_name)
-#img = cv2.imread(img_path)
-#cv2.imshow('image', img)
-#cv2.waitKey(0)
-#cv2.destroyAllWindows()
